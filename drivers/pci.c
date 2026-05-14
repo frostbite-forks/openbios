@@ -1020,21 +1020,35 @@ int vga_config_cb (const pci_config_t *config)
 
                     bar = pci_config_read32(config->dev, PCI_ROM_ADDRESS);
                     bar |= PCI_ROM_ADDRESS_ENABLE;
-                    pci_config_write32(config->dev, PCI_COMMAND, bar);
+                    pci_config_write32(config->dev, PCI_ROM_ADDRESS, bar);
                     ph = get_cur_dev();
 
                     if (rom_size >= 8) {
-                            const char *p;
+                          	const char *p;
+                            uint32_t off;
 
                             p = (const char *)rom;
-                            if (p[0] == 'N' && p[1] == 'D' && p[2] == 'R' && p[3] == 'V') {
-                                    size = *(uint32_t*)(p + 4);
-                                    set_property(ph, "driver,AAPL,MacOS,PowerPC",
-                                                 p + 8, size);
-                            } else if (p[0] == 'J' && p[1] == 'o' &&
-                                       p[2] == 'y' && p[3] == '!') {
-                                    set_property(ph, "driver,AAPL,MacOS,PowerPC",
-                                                 p, rom_size);
+                            /* Scan entire ROM for NDRV/Joy! — may be embedded
+                             * after an x86 VGA BIOS image in a PCI multi-image ROM */
+                            for (off = 0; off + 8 <= rom_size; off++) {
+                                    if (p[off]=='N' && p[off+1]=='D' &&
+                                        p[off+2]=='R' && p[off+3]=='V') {
+                                            size = (((uint8_t)p[off+4]) << 24) |
+                                                   (((uint8_t)p[off+5]) << 16) |
+                                                   (((uint8_t)p[off+6]) <<  8) |
+                                                    ((uint8_t)p[off+7]);
+                                            if (off + 8 + size <= rom_size)
+                                                    set_property(ph,
+                                                        "driver,AAPL,MacOS,PowerPC",
+                                                        p + off + 8, size);
+                                            break;
+                                    } else if (p[off]=='J' && p[off+1]=='o' &&
+                                               p[off+2]=='y' && p[off+3]=='!') {
+                                            set_property(ph,
+                                                "driver,AAPL,MacOS,PowerPC",
+                                                p + off, rom_size - off);
+                                            break;
+                                    }
                             }
                     }
             }

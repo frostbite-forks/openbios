@@ -1,0 +1,19 @@
+name: Build OpenBIOS-ATI
+on: [push, workflow_dispatch]
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Tools
+        run: sudo apt-get update && sudo apt-get install -y gcc-powerpc-linux-gnu make xxd xsltproc fcode-utils
+      - name: Configure Build
+        run: ./config/scripts/switch-arch qemu-ppc
+      - name: Build PPC Binary
+        run: make V=1 CROSS_COMPILE=powerpc-linux-gnu-
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openbios-ppc-custom
+          path: obj-ppc/openbios-qemu.elf
