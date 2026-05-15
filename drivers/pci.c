@@ -1002,6 +1002,16 @@ int macio_keylargo_config_cb (const pci_config_t *config)
         return 0;
 }
 
+int macio_k2_config_cb (const pci_config_t *config)
+{
+        pci_set_ranges(config);
+
+#ifdef CONFIG_DRIVER_MACIO
+        ob_macio_k2_init(config->path, config->assigned[0] & ~0x0000000F);
+#endif
+        return 0;
+}
+
 int vga_config_cb (const pci_config_t *config)
 {
 #ifdef CONFIG_PPC

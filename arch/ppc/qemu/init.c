@@ -74,6 +74,7 @@ enum {
     ARCH_MAC99,
     ARCH_HEATHROW,
     ARCH_MAC99_U3,
+    ARCH_PMAC_G5,
 };
 
 int is_apple(void)
@@ -89,7 +90,13 @@ int is_oldworld(void)
 int is_newworld(void)
 {
     return (machine_id == ARCH_MAC99) ||
-           (machine_id == ARCH_MAC99_U3);
+           (machine_id == ARCH_MAC99_U3) ||
+           (machine_id == ARCH_PMAC_G5);
+}
+
+int is_g5(void)
+{
+    return machine_id == ARCH_PMAC_G5;
 }
 
 #define CORE99_VIA_CONFIG_CUDA     0x0
@@ -154,6 +161,26 @@ static const pci_arch_t known_arch[] = {
     },
     [ARCH_MAC99_U3] = {
         .name = "MAC99_U3",
+        .vendor_id = PCI_VENDOR_ID_APPLE,
+        .device_id = PCI_DEVICE_ID_APPLE_U3_AGP,
+        .cfg_addr = 0xf0800000,
+        .cfg_data = 0xf0c00000,
+        .cfg_base = 0xf0000000,
+        .cfg_len = 0x02000000,
+        .host_pci_base = 0x0,
+        .pci_mem_base = 0x80000000,
+        .mem_len = 0x10000000,
+        .io_base = 0xf2000000,
+        .io_len = 0x00800000,
+        .host_ranges = {
+            { .type = IO_SPACE, .parentaddr = 0, .childaddr = 0xf2000000, .len = 0x00800000 },
+            { .type = MEMORY_SPACE_32, .parentaddr = 0x80000000, .childaddr = 0x80000000, .len = 0x10000000 },
+            { .type = 0, .parentaddr = 0, .childaddr = 0, .len = 0 }
+         },
+        .irqs = { 0x1b, 0x1c, 0x1d, 0x1e }
+    },
+    [ARCH_PMAC_G5] = {
+        .name = "PMAC_G5",
         .vendor_id = PCI_VENDOR_ID_APPLE,
         .device_id = PCI_DEVICE_ID_APPLE_U3_AGP,
         .cfg_addr = 0xf0800000,
@@ -930,6 +957,7 @@ arch_of_init(void)
     switch (machine_id) {
     case ARCH_MAC99:
     case ARCH_MAC99_U3:
+    case ARCH_PMAC_G5:
         /* The NewWorld NVRAM is not located in the MacIO device */
         macio_nvram_init("/", 0);
         ob_pci_init();
@@ -1004,6 +1032,37 @@ arch_of_init(void)
         fword("encode-int");
         push_str("AAPL,cpu-id");
         fword("property");
+
+        PUSH(fw_cfg_read_i32(FW_CFG_PPC_BUSFREQ));
+        fword("encode-int");
+        push_str("clock-frequency");
+        fword("property");
+        break;
+
+    case ARCH_PMAC_G5:
+
+        /* model */
+
+        push_str("PowerMac7,3");
+        fword("model");
+
+        /* compatible */
+
+        push_str("PowerMac7,3");
+        fword("encode-string");
+        push_str("MacRISC4");
+        fword("encode-string");
+        fword("encode+");
+        push_str("Power Macintosh");
+        fword("encode-string");
+        fword("encode+");
+        push_str("compatible");
+        fword("property");
+
+        /* misc */
+
+        push_str("bootrom");
+        fword("device-type");
 
         PUSH(fw_cfg_read_i32(FW_CFG_PPC_BUSFREQ));
         fword("encode-int");
@@ -1086,6 +1145,7 @@ arch_of_init(void)
     switch (machine_id) {
     case ARCH_MAC99:
     case ARCH_MAC99_U3:
+    case ARCH_PMAC_G5:
         if (!(ph = find_dev("/rtas"))) {
             printk("Warning: No /rtas node\n");
         } else {

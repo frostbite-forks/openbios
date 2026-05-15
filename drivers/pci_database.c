@@ -356,6 +356,13 @@ static const pci_dev_t hbrg_devices[] = {
         3, 2, 1,
         host_config_cb, NULL,
     },
+    /* CPC945 HyperTransport Bridge (PowerMac G5) */
+    {
+        PCI_VENDOR_ID_APPLE, PCI_DEVICE_ID_APPLE_CPC945_HT, NULL,
+        "ht", "AAPL,UniNorth", "cpc945\0",
+        3, 2, 1,
+        host_config_cb, NULL,
+    },
     {
         PCI_VENDOR_ID_APPLE, PCI_DEVICE_ID_APPLE_UNI_N_AGP, NULL,
         "pci", "AAPL,UniNorth", "uni-north\0",
@@ -412,6 +419,37 @@ static const pci_dev_t PCIbrg_devices[] = {
         "pci", "SUNW,simba", "pci108e,5000\0pciclass,060400\0",
         3, 2, 1,
         simba_config_cb, NULL,
+    },
+    /* K2 HT-PCI Bridges (PowerMac G5) */
+    {
+        PCI_VENDOR_ID_APPLE, PCI_DEVICE_ID_APPLE_K2_HT_BRIDGE1, NULL,
+        "pci", "AAPL,K2", "k2-pci\0",
+        3, 2, 1,
+        bridge_config_cb, NULL,
+    },
+    {
+        PCI_VENDOR_ID_APPLE, PCI_DEVICE_ID_APPLE_K2_HT_BRIDGE2, NULL,
+        "pci", "AAPL,K2", "k2-pci\0",
+        3, 2, 1,
+        bridge_config_cb, NULL,
+    },
+    {
+        PCI_VENDOR_ID_APPLE, PCI_DEVICE_ID_APPLE_K2_HT_BRIDGE3, NULL,
+        "pci", "AAPL,K2", "k2-pci\0",
+        3, 2, 1,
+        bridge_config_cb, NULL,
+    },
+    {
+        PCI_VENDOR_ID_APPLE, PCI_DEVICE_ID_APPLE_K2_HT_BRIDGE4, NULL,
+        "pci", "AAPL,K2", "k2-pci\0",
+        3, 2, 1,
+        bridge_config_cb, NULL,
+    },
+    {
+        PCI_VENDOR_ID_APPLE, PCI_DEVICE_ID_APPLE_K2_HT_BRIDGE5, NULL,
+        "pci", "AAPL,K2", "k2-pci\0",
+        3, 2, 1,
+        bridge_config_cb, NULL,
     },
     {
         0xFFFF, 0xFFFF,
@@ -1196,6 +1234,13 @@ static const pci_dev_t misc_pci[] = {
         "mac-io", "mac-io", "AAPL,Keylargo", "Keylargo\0",
         1, 1, 1,
         &macio_keylargo_config_cb, NULL,
+    },
+    /* K2 KeyLargo Mac I/O (PowerMac G5) */
+    {
+        PCI_VENDOR_ID_APPLE, PCI_DEVICE_ID_APPLE_K2_MACIO,
+        "mac-io", "mac-io", "AAPL,K2", "K2\0",
+        1, 1, 1,
+        &macio_k2_config_cb, NULL,
     },
     {
         0xFFFF, 0xFFFF,

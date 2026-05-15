@@ -403,16 +403,30 @@ ob_unin_init(void)
         int props[2];
 
         fword("new-device");
-        push_str("uni-n");
-        fword("device-name");
 
-        dnode = find_dev("/uni-n");
-        set_property(dnode, "device_type", "memory-controller", 18);
-        set_property(dnode, "compatible", "uni-north", 10);
-        set_int_property(dnode, "device-rev", 7);
-        props[0] = __cpu_to_be32(0xf8000000);
-        props[1] = __cpu_to_be32(0x1000000);
-        set_property(dnode, "reg", (char *)&props, sizeof(props));
+        if (is_g5()) {
+            push_str("u3");
+            fword("device-name");
+
+            dnode = find_dev("/u3");
+            set_property(dnode, "device_type", "memory-controller", 18);
+            set_property(dnode, "compatible", "u3\0uni-north\0", 13);
+            set_int_property(dnode, "device-rev", 0xb3);
+            props[0] = __cpu_to_be32(0xf8000000);
+            props[1] = __cpu_to_be32(0x2000000);
+            set_property(dnode, "reg", (char *)&props, sizeof(props));
+        } else {
+            push_str("uni-n");
+            fword("device-name");
+
+            dnode = find_dev("/uni-n");
+            set_property(dnode, "device_type", "memory-controller", 18);
+            set_property(dnode, "compatible", "uni-north", 10);
+            set_int_property(dnode, "device-rev", 7);
+            props[0] = __cpu_to_be32(0xf8000000);
+            props[1] = __cpu_to_be32(0x1000000);
+            set_property(dnode, "reg", (char *)&props, sizeof(props));
+        }
 
         fword("finish-device");
 }
@@ -529,6 +543,28 @@ ob_macio_keylargo_init(const char *path, phys_addr_t addr)
     macio_ide_init(path, addr, 2);
     openpic_init(path, addr);
     davbus_init(path, addr);
+
+    aliases = find_dev("/aliases");
+    set_property(aliases, "mac-io", path, strlen(path) + 1);
+}
+
+void
+ob_macio_k2_init(const char *path, phys_addr_t addr)
+{
+    phandle_t aliases;
+
+    BIND_NODE_METHODS(get_cur_dev(), ob_macio);
+
+    macio_gpio_init(path);
+
+    if (has_pmu()) {
+        pmu_init(path, addr);
+    } else {
+        cuda_init(path, addr);
+    }
+
+    escc_init(path, addr);
+    openpic_init(path, addr);
 
     aliases = find_dev("/aliases");
     set_property(aliases, "mac-io", path, strlen(path) + 1);
