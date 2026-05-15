@@ -381,10 +381,21 @@ GLOBL(__vectors_end):
 
 GLOBL(_entry):
 
-	/* Secondary CPUs spin here — PIR (SPR 1023) == 0 only on boot CPU */
-	mfspr	r0, 1023
+	/*
+	 * Only one CPU may proceed as the boot CPU.  Use a word in .data as
+	 * a ticket: the first CPU that CAS it from 0 → 1 wins; all others spin.
+	 * lwarx/stwcx. work at real (physical) addresses because the MMU is
+	 * still off at this point.
+	 */
+	LOAD_REG_IMMEDIATE(r5, _boot_cpu_flag)
+	li	r6, 1
+primary_cpu_try:
+	lwarx	r0, 0, r5
 	cmpwi	r0, 0
-	beq	primary_cpu
+	bne	secondary_spin		/* already claimed — spin */
+	stwcx.	r6, 0, r5
+	bne-	primary_cpu_try		/* reservation lost — retry */
+	b	primary_cpu		/* won the race */
 secondary_spin:
 	b	secondary_spin
 
@@ -504,7 +515,9 @@ real_entry:
         .data
 _GLOBAL(saved_stack):
         DATA_LONG(0)
-        
+_GLOBAL(_boot_cpu_flag):
+        DATA_LONG(0)
+
         .previous
 
 #ifdef __powerpc64__
