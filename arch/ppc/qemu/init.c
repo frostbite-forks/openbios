@@ -450,13 +450,15 @@ ppc64_patch_handlers(void)
 static void
 cpu_970_init(const struct cpudef *cpu)
 {
+    int i, nb_cpus;
+
     cpu_generic_init(cpu);
 
     PUSH(0);
     fword("encode-int");
     push_str("reg");
     fword("property");
-    
+
     PUSH(0);
     PUSH(0);
     fword("encode-bytes");
@@ -464,6 +466,103 @@ cpu_970_init(const struct cpudef *cpu)
     fword("property");
 
     fword("finish-device");
+
+    /* Create device tree nodes for secondary CPUs */
+    nb_cpus = fw_cfg_read_i32(FW_CFG_NB_CPUS);
+    for (i = 1; i < nb_cpus; i++) {
+        push_str("/cpus");
+        fword("find-device");
+        fword("new-device");
+
+        push_str(cpu->name);
+        fword("device-name");
+
+        push_str("cpu");
+        fword("device-type");
+
+        PUSH(mfpvr());
+        fword("encode-int");
+        push_str("cpu-version");
+        fword("property");
+
+        PUSH(cpu->dcache_size);
+        fword("encode-int");
+        push_str("d-cache-size");
+        fword("property");
+
+        PUSH(cpu->icache_size);
+        fword("encode-int");
+        push_str("i-cache-size");
+        fword("property");
+
+        PUSH(cpu->dcache_sets);
+        fword("encode-int");
+        push_str("d-cache-sets");
+        fword("property");
+
+        PUSH(cpu->icache_sets);
+        fword("encode-int");
+        push_str("i-cache-sets");
+        fword("property");
+
+        PUSH(cpu->dcache_block_size);
+        fword("encode-int");
+        push_str("d-cache-block-size");
+        fword("property");
+
+        PUSH(cpu->icache_block_size);
+        fword("encode-int");
+        push_str("i-cache-block-size");
+        fword("property");
+
+        PUSH(cpu->tlb_sets);
+        fword("encode-int");
+        push_str("tlb-sets");
+        fword("property");
+
+        PUSH(cpu->tlb_size);
+        fword("encode-int");
+        push_str("tlb-size");
+        fword("property");
+
+        PUSH(timer_freq);
+        fword("encode-int");
+        push_str("timebase-frequency");
+        fword("property");
+
+        PUSH(fw_cfg_read_i32(FW_CFG_PPC_CLOCKFREQ));
+        fword("encode-int");
+        push_str("clock-frequency");
+        fword("property");
+
+        PUSH(fw_cfg_read_i32(FW_CFG_PPC_BUSFREQ));
+        fword("encode-int");
+        push_str("bus-frequency");
+        fword("property");
+
+        push_str("spin-loop");
+        fword("encode-string");
+        push_str("state");
+        fword("property");
+
+        PUSH(0x20);
+        fword("encode-int");
+        push_str("reservation-granule-size");
+        fword("property");
+
+        PUSH(i);
+        fword("encode-int");
+        push_str("reg");
+        fword("property");
+
+        PUSH(0);
+        PUSH(0);
+        fword("encode-bytes");
+        push_str("64-bit");
+        fword("property");
+
+        fword("finish-device");
+    }
 
 #ifdef CONFIG_PPC_64BITSUPPORT
     /* The 970 is a PPC64 CPU, so we need to activate

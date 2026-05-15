@@ -381,6 +381,15 @@ GLOBL(__vectors_end):
 
 GLOBL(_entry):
 
+	/* Secondary CPUs spin here — PIR (SPR 1023) == 0 only on boot CPU */
+	mfspr	r0, 1023
+	cmpwi	r0, 0
+	beq	primary_cpu
+secondary_spin:
+	b	secondary_spin
+
+primary_cpu:
+
 #ifdef CONFIG_PPC_64BITSUPPORT
 	li	r0,0
 
