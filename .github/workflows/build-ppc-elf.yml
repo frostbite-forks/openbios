@@ -25,9 +25,7 @@ jobs:
         run: make -j$(nproc)
 
       - name: Verify ELF artifact
-        run: |
-          file obj-ppc/openbios-qemu.elf
-          ls -lh obj-ppc/openbios-qemu.elf
+        run: ls -lh obj-ppc/openbios-qemu.elf
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
