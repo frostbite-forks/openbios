@@ -18,6 +18,10 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Apply vgpu3d patches
+        run: |
+          git apply patches/0001-drivers-vga-inject-vgpu3d-properties-into-ati-node.patch
+
       - name: Configure for PPC
         run: ./config/scripts/switch-arch ppc
 
