@@ -1,0 +1,39 @@
+name: Build openbios-qemu.elf (PPC)
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: openbios-qemu.elf / ppc
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install cross-compiler toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            gcc-powerpc-linux-gnu \
+            binutils-powerpc-linux-gnu
+
+      - name: Build OpenBIOS for PPC/QEMU
+        run: make -j$(nproc) ARCH=ppc CROSS_COMPILE=powerpc-linux-gnu-
+
+      - name: Verify ELF artifact
+        run: |
+          file obj/ppc/openbios-qemu.elf
+          ls -lh obj/ppc/openbios-qemu.elf
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openbios-qemu-elf
+          path: obj/ppc/openbios-qemu.elf
+          retention-days: 30
