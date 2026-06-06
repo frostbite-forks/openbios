@@ -20,6 +20,7 @@ jobs:
 
       - name: Apply vgpu3d patches
         run: |
+          apt-get install -y patch
           for p in patches/*.patch; do
             echo "Applying $p"
             patch -p1 < "$p"
