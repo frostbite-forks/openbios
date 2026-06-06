@@ -1,100 +1,76 @@
 From 0000000000000000000000000000000000000001 Mon Sep 17 00:00:00 2001
 From: Bruno Castelló <bfcastello@gmail.com>
-Date: TBD
-Subject: [PATCH 1/1] drivers/vga: inject vgpu3d properties into ATI PCI node
+Date: Fri, 6 Jun 2026 00:00:00 +0000
+Subject: [PATCH] drivers/vga: inject vgpu3d properties into ATI PCI node
 
-STATUS: STUB — NOT applied in CI.  le-l@ is a runtime-only word bound
-via bind_func() in libopenbios/init.c; the FCode tokenizer (toke/fcode-utils)
-does not have it in its dictionary and will error.  Must be rewritten using
-tokenizer-safe words (e.g. two le-w@ calls) before applying.  See PATCHES.md.
+Injects device-tree properties into the ATY,Rage128Pd Name Registry node
+during NDRV installation:
 
-This patch documents the planned
-OpenBIOS Forth change that detects the vgpu3d transport layer in the
-ATI Rage 128 Pro device node and injects the properties that allow the
-Mac OS 9 guest extension to discover 3D acceleration capability at boot
-without performing its own MMIO probe.
+  "driver-reg-properties"  (integer 1) -- unconditional
+    Mac OS 9 ATI extensions (ATIMM, ATI 3D Accelerator) require this
+    property to enable their 3D acceleration code paths.
 
---- MOTIVATION ---
+  "qemu,vgpu3d"     (string "true") -- conditional on MMIO magic
+  "qemu,vgpu3d-ver" (integer 1)     -- conditional on MMIO magic
+    Signals vgpu3d passthrough transport is active (requires QEMU
+    patches 0003/0004). If the magic register reads 0 (vanilla QEMU),
+    the branch is not taken and no transport properties are injected.
 
-The guest System Extension (sources/ATIAccel.c) performs its own magic
-check at VGPU3D_CTRL_OFFSET+0x08 after mapping BAR2.  This OpenBIOS
-patch is therefore not strictly required for correctness, but it provides
-two advantages:
+TOKENIZER FIX (why rl@ instead of le-l@):
 
-  1. Clean device-tree contract: classic Mac OS drivers expect capability
-     flags in the Name Registry tree rather than side-channel MMIO probes.
-     Injecting "qemu,vgpu3d" lets any NameRegistry-aware code discover
-     the accelerator without touching MMIO at startup.
+  le-l@ and le-w@ are bound via bind_func() in libopenbios/init.c.
+  They are absent from the fcode-utils tokenizer dictionary. vga.fs is
+  compiled by toke into QEMU,VGA.bin (see drivers/build.xml), so any
+  word absent from the tokenizer causes: "Word le-l@ is not in dictionary"
 
-  2. Futureproofing: OpenBIOS is the right place to gate on whether the
-     host QEMU binary actually supports vgpu3d (magic read succeeds only
-     when hw/display/ati.c has patch 0003 applied).  If the guest is
-     booted on a vanilla QEMU build the property is simply absent and the
-     extension falls back gracefully to 2D.
+  rl@ is a standard IEEE 1275 FCode primitive encoded by token number --
+  always present in the tokenizer dictionary.
 
---- IMPLEMENTATION NOTES ---
+BYTE-SWAP MATH:
 
-  Control register magic is at: mmio-addr + VGPU3D_CTRL_OFFSET + REG_MAGIC
-    = mmio-addr + h#4000 + h#08
-    = mmio-addr + h#4008
+  The vgpu3d control register region is DEVICE_LITTLE_ENDIAN (ati.c).
+  When the big-endian PPC CPU reads from this region via rl@:
+    1. C read handler returns 0x56475033 ("VGP3").
+    2. QEMU byte-swaps for BE CPU: 0x56475033 -> 0x33504756.
+    3. rl@ (native PPC load) sees 0x33504756.
+  Compare against h# 33504756, not h# 56475033.
 
-  le-l@ (defined in libopenbios/init.c as __le32_to_cpu(*aaddr)) is the
-  correct word for reading a 32-bit little-endian value from MMIO on a
-  big-endian PowerPC guest.  The vgpu3d control registers are declared
-  DEVICE_LITTLE_ENDIAN in ati.c; QEMU byte-swaps the handler return value
-  for the big-endian CPU, and le-l@ byte-swaps again, restoring the
-  correct value.  The magic constant is 0x56475033 ("VGP3").
+REGISTER MAP (BAR2 layout, QEMU patch 0003):
 
-  After map-mmio completes (mmio-addr is valid) and vbe-init has run,
-  the new block:
-    * reads mmio-addr + h#4008 via le-l@
-    * if it equals h#56475033, reads the version at mmio-addr + h#400C
-    * installs two properties into the current device node:
-        "qemu,vgpu3d"        (string "true")
-        "qemu,vgpu3d-ver"    (integer, protocol version number)
+  BAR2 + h#4000  vgpu3d control registers
+    +h#00  VGPU3D_REG_DOORBELL  (WO)
+    +h#04  VGPU3D_REG_TAIL      (RO)
+    +h#08  VGPU3D_REG_MAGIC     (RO)  h#56475033 "VGP3"
+    +h#0C  VGPU3D_REG_VERSION   (RO)  protocol version
 
-  These properties appear in the ATY,Rage128Pd Name Registry node and
-  are visible to GetNamedProperty() calls from the guest extension.
-
-  NOTE: Until QEMU patches 0003/0004 are committed, le-l@ at h#4008
-  returns 0 (falls through to ati_mm_read default), the if branch is
-  not taken, and no properties are injected.  This is the safe fallback.
+  Magic probe address: mmio-addr + h#4000 + h#08 = mmio-addr + h#4008
 
 Signed-off-by: Bruno Castelló <bfcastello@gmail.com>
 ---
- drivers/vga.fs | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ drivers/vga.fs | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
 diff --git a/drivers/vga.fs b/drivers/vga.fs
-index 53dcff0fb4..000000000001 100644
 --- a/drivers/vga.fs
 +++ b/drivers/vga.fs
-@@ -246,14 +246,26 @@ : qemu-vga-driver-install ( -- )
- : qemu-vga-driver-install ( -- )
+@@ -247,6 +247,20 @@ : qemu-vga-driver-install ( -- )
    mmio-addr -1 = if
      map-mmio vbe-init
    then
-+  \ vgpu3d Phase 2: probe BAR2 control registers for passthrough magic.
-+  \ VGPU3D_CTRL_OFFSET = h#4000, REG_MAGIC offset = h#08  → h#4008.
-+  \ VGPU3D_REG_VERSION offset = h#0C                      → h#400C.
-+  \ le-l@ reads little-endian 32-bit MMIO correctly on big-endian PPC.
++
++  \ Mac OS 9 ATI extensions (ATIMM, ATI 3D Accelerator) require this.
++  1 encode-int " driver-reg-properties" property
++
++  \ Probe vgpu3d passthrough (needs QEMU patch 0003). rl@ is tokenizer-safe;
++  \ le-l@ is bind_func runtime-only (absent from toke dictionary).
++  \ DEVICE_LITTLE_ENDIAN region: h#56475033 arrives byte-swapped as h#33504756.
 +  mmio-addr -1 <> if
-+    mmio-addr h# 4008 + le-l@        ( magic )
-+    h# 56475033 = if                  ( "VGP3" — vgpu3d present )
-+      mmio-addr h# 400c + le-l@      ( version )
-+      encode-int " qemu,vgpu3d-ver" property
++    mmio-addr h# 4008 + rl@ h# 33504756 = if
++      1 encode-int " qemu,vgpu3d-ver" property
 +      " true" encode-string " qemu,vgpu3d" property
 +    then
 +  then
++
    fb-addr -1 = if
      map-fb fb-addr to frame-buffer-adr
      default-font set-font
-
-     frame-buffer-adr encode-int " address" property
-
-     openbios-video-width openbios-video-height over char-width / over char-height /
-     fb8-install
-   then
- ;
---
-2.49.0
