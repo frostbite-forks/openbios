@@ -3,7 +3,12 @@ From: Bruno Castelló <bfcastello@gmail.com>
 Date: TBD
 Subject: [PATCH 1/1] drivers/vga: inject vgpu3d properties into ATI PCI node
 
-STATUS: STUB — not yet implemented.  This patch documents the planned
+STATUS: STUB — NOT applied in CI.  le-l@ is a runtime-only word bound
+via bind_func() in libopenbios/init.c; the FCode tokenizer (toke/fcode-utils)
+does not have it in its dictionary and will error.  Must be rewritten using
+tokenizer-safe words (e.g. two le-w@ calls) before applying.  See PATCHES.md.
+
+This patch documents the planned
 OpenBIOS Forth change that detects the vgpu3d transport layer in the
 ATI Rage 128 Pro device node and injects the properties that allow the
 Mac OS 9 guest extension to discover 3D acceleration capability at boot
