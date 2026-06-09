@@ -350,6 +350,7 @@ cpu_add_pir_property(void)
     asm("mfspr %0, 1023\n"
         : "=r"(pir) :);
     PUSH(pir);
+    printk("Pir = %lu \n", pir);
     fword("encode-int");
     push_str("reg");
     fword("property");
@@ -361,7 +362,7 @@ cpu_604_init(const struct cpudef *cpu)
     cpu_generic_init(cpu);
     cpu_add_pir_property();
 
-    fword("finish-device");
+//    fword("finish-device");
 }
 
 static void
@@ -374,7 +375,7 @@ cpu_750_init(const struct cpudef *cpu)
     push_str("reg");
     fword("property");
 
-    fword("finish-device");
+    //fword("finish-device");
 }
 
 static void
@@ -383,7 +384,7 @@ cpu_g4_init(const struct cpudef *cpu)
     cpu_generic_init(cpu);
     cpu_add_pir_property();
 
-    fword("finish-device");
+    //fword("finish-device");
 }
 
 #ifdef CONFIG_PPC_64BITSUPPORT
@@ -436,7 +437,7 @@ cpu_970_init(const struct cpudef *cpu)
     push_str("64-bit");
     fword("property");
 
-    fword("finish-device");
+    //fword("finish-device");
 
 #ifdef CONFIG_PPC_64BITSUPPORT
     /* The 970 is a PPC64 CPU, so we need to activate
@@ -566,7 +567,7 @@ static const struct cpudef ppc_defs[] = {
         .dcache_block_size = 0x20,
         .tlb_sets = 0x40,
         .tlb_size = 0x80,
-        .initfn = cpu_750_init,
+        .initfn = cpu_g4_init,
     },
     {
         .iu_version = 0x0000c0000,
@@ -1073,11 +1074,24 @@ arch_of_init(void)
     push_str("reg");
     fword("property");
 
+for (int i= 0; i<temp; i++) {
     cpu = id_cpu();
     cpu->initfn(cpu);
-    printk("CPU type %s\n", cpu->name);
 
+    printk("CPU type %s\n", cpu->name);
     snprintf(buf, sizeof(buf), "/cpus/%s", cpu->name);
+    PUSH(i);
+    fword("encode-int");
+    push_str("reg");
+    fword("property");
+    if (i!=0){
+        push_str("stopped");
+        fword("encode-string");
+        push_str("state");
+        fword("property");
+        }
+    fword("finish-device");
+}
     ofmem_register(find_dev("/memory"), find_dev(buf));
     node_methods_init(buf);
 
