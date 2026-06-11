@@ -256,3 +256,30 @@ void setup_video()
 	snprintf(buf, sizeof(buf), FMT_ucell, VIDEO_DICT_VALUE(video.h) / FONT_HEIGHT);
 	set_property(options, "screen-#rows", buf, strlen(buf) + 1);
 }
+
+void
+vga_sync_video_from_package(phandle_t ph)
+{
+	int len;
+	u32 val;
+
+	val = get_int_property(ph, "linebytes", &len);
+	if (len >= (int)sizeof(u32) && val > 0)
+		VIDEO_DICT_VALUE(video.rb) = val;
+
+	val = get_int_property(ph, "width", &len);
+	if (len >= (int)sizeof(u32) && val > 0)
+		VIDEO_DICT_VALUE(video.w) = val;
+
+	val = get_int_property(ph, "height", &len);
+	if (len >= (int)sizeof(u32) && val > 0)
+		VIDEO_DICT_VALUE(video.h) = val;
+
+	val = get_int_property(ph, "depth", &len);
+	if (len >= (int)sizeof(u32) && val > 0)
+		VIDEO_DICT_VALUE(video.depth) = val;
+
+	val = get_int_property(ph, "address", &len);
+	if (len >= (int)sizeof(u32) && val > 0)
+		VIDEO_DICT_VALUE(video.mvirt) = val;
+}

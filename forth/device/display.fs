@@ -174,9 +174,13 @@ defer fb8-blitmask
 defer fb8-fillrect
 defer fb8-invertrect
 
+: fb8-linestride ( -- bytes )
+  line-bytes dup if nip else drop screen-width depth-bytes * then
+;
+
 : fb8-line2addr ( line -- addr )
   window-top +
-  screen-width * depth-bytes *
+  fb8-linestride *
   frame-buffer-adr + 
   window-left depth-bytes * +
 ;
@@ -210,7 +214,7 @@ defer fb8-invertrect
   char-width char-height fb8-fillrect
   \ draw the character:
   >font  
-  line# char-height * window-top + screen-width * depth-bytes *
+  line# char-height * window-top + fb8-linestride *
   column# char-width * depth-bytes *
   window-left depth-bytes * + + frame-buffer-adr +
   swap char-width char-height font-spacing -
@@ -327,9 +331,9 @@ defer fb8-invertrect
 
 : fb8-draw-logo ( line# addr width height -- )
   2swap swap
-  char-height  * window-top  + 
-  screen-width * window-left +
-  frame-buffer-adr + 
+  char-height * window-top +
+  fb8-linestride * window-left depth-bytes * +
+  frame-buffer-adr +
   swap 2swap
   \ in-fb-start-adr logo-adr logo-width logo-height 
 

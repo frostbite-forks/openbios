@@ -1,3 +1,4 @@
+#include "kernel/stack.h"
 
 #ifdef CONFIG_VGA_WIDTH
 #define VGA_DEFAULT_WIDTH	CONFIG_VGA_WIDTH
@@ -20,6 +21,7 @@
 #define VGA_DEFAULT_LINEBYTES	(VGA_DEFAULT_WIDTH*((VGA_DEFAULT_DEPTH+7)/8))
 
 void setup_video(void);
+void vga_sync_video_from_package(phandle_t ph);
 unsigned long video_get_color(int col_ind);
 void video_mask_blit(void);
 void video_invert_rect(void);

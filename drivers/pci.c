@@ -1125,6 +1125,8 @@ int vga_config_cb (const pci_config_t *config)
                     feval("['] vga-driver-fcode 2 cells + 1 byte-load");
             }
 
+            vga_sync_video_from_package(ph);
+
 #ifdef CONFIG_MOL
             /* Install special words for Mac On Linux */
             molvideo_init();
