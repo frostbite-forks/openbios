@@ -31,7 +31,6 @@
 #include "timer.h"
 #include "pci.h"
 #include "pci_database.h"
-#include "libopenbios/fcode_load.h"
 #ifdef CONFIG_DRIVER_MACIO
 #include "macio.h"
 #endif
@@ -1005,6 +1004,12 @@ int macio_keylargo_config_cb (const pci_config_t *config)
 }
 
 #ifdef CONFIG_PPC
+static int pci_rom_is_fcode(const unsigned char *fcode)
+{
+        return (fcode[0] == 0xf0 || fcode[0] == 0xf1 || fcode[0] == 0xf2 ||
+                fcode[0] == 0xf3 || fcode[0] == 0xfd);
+}
+
 static const char *pci_rom_find(const char *rom, uint32_t rom_size,
                                 const char *magic, size_t magic_len)
 {
@@ -1041,7 +1046,7 @@ static int pci_rom_fcode_offset(const char *rom, uint32_t rom_size,
         if (*fcode_off >= rom_size)
                 return 0;
 
-        return is_fcode((unsigned char *)(rom + *fcode_off));
+        return pci_rom_is_fcode((const unsigned char *)(rom + *fcode_off));
 }
 
 static void pci_rom_install_mac_driver(phandle_t ph, const char *rom,
