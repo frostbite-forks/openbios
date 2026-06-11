@@ -59,7 +59,8 @@ fcode-version3
 : pci-bar>pci-addr pci-bar>pci-addr-xt execute ;
 
 h# 10 constant cfg-bar0    \ Framebuffer BAR
-h# 18 constant cfg-bar2    \ QEMU MMIO ioport BAR
+h# 14 constant cfg-bar1    \ MMIO BAR (NV20 GeForce3)
+h# 18 constant cfg-bar2    \ QEMU VGA MMIO ioport BAR
 -1 value fb-addr
 -1 value mmio-addr
 
@@ -120,7 +121,7 @@ defer vbe-iow!
 ;
 
 : vbe-mmio-iow!  ( val addr -- )
-  1 lshift h# 500 + mmio-addr + cr .s cr le-w!
+  1 lshift h# 500 + mmio-addr + le-w!
 ;
 
 \
@@ -153,6 +154,13 @@ defer vbe-iow!
 
 : map-mmio ( -- )
   cfg-bar2 pci-bar>pci-addr if   \ ( pci-addr.lo pci-addr.mid pci-addr.hi size )
+    " pci-map-in" $call-parent
+    to mmio-addr
+  then
+;
+
+: map-mmio-bar1 ( -- )
+  cfg-bar1 pci-bar>pci-addr if
     " pci-map-in" $call-parent
     to mmio-addr
   then
@@ -245,7 +253,13 @@ headerless
 
 : qemu-vga-driver-install ( -- )
   mmio-addr -1 = if
-    map-mmio vbe-init
+    map-mmio
+    mmio-addr -1 = if
+      map-mmio-bar1
+    then
+  then
+  mmio-addr -1 <> if
+    vbe-init
   then
 
   1 encode-int " driver-reg-properties" property
