@@ -1112,10 +1112,6 @@ int vga_config_cb (const pci_config_t *config)
             device_id = pci_config_read16(config->dev, PCI_DEVICE_ID);
             ph = get_cur_dev();
 
-            if (vendor_id == PCI_VENDOR_ID_NVIDIA &&
-                device_id == PCI_DEVICE_ID_NVIDIA_GEFORCE3)
-                    set_int_property(ph, "driver-reg-properties", 1);
-
             if (config->assigned[6]) {
                     rom = pci_bus_addr_to_host_addr(MEMORY_SPACE_32,
                                                     config->assigned[6] & ~0x0000000F);

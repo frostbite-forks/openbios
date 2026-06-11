@@ -247,6 +247,9 @@ headerless
   mmio-addr -1 = if
     map-mmio vbe-init
   then
+
+  1 encode-int " driver-reg-properties" property
+
   fb-addr -1 = if
     map-fb fb-addr to frame-buffer-adr
     default-font set-font
