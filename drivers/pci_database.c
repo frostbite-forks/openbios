@@ -246,6 +246,12 @@ static const pci_dev_t vga_devices[] = {
         NULL, NULL,
     },
     {
+        PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_GEFORCE3,
+        "display", "GeForce3", "GeForce3", "NVDA,NVMac\0",
+        0, 0, 0,
+        NULL, NULL,
+    },
+    {
         PCI_VENDOR_ID_QEMU, PCI_DEVICE_ID_QEMU_VGA,
         NULL, "QEMU,VGA", "QEMU VGA",    "VGA\0",
         0, 0, 0,

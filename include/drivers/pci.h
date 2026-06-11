@@ -194,6 +194,9 @@ extern const pci_arch_t *arch;
 #define PCI_VENDOR_ID_ATI                0x1002
 #define PCI_DEVICE_ID_ATI_RAGE128_PF     0x5046
 
+#define PCI_VENDOR_ID_NVIDIA             0x10de
+#define PCI_DEVICE_ID_NVIDIA_GEFORCE3    0x0200
+
 #define PCI_VENDOR_ID_DEC                0x1011
 #define PCI_DEVICE_ID_DEC_21154          0x0026
 
