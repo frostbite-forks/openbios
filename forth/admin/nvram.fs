@@ -337,8 +337,9 @@ s" 4000000"  s" load-base"          int-config
 s" -1"       s" virt-base"            int-config
 s" -1"       s" virt-size"            int-config
 s" true"     s" vga-ndrv?"            bool-config
-\ Boot-console mode requested from an ATI Rage 128 FCode display (see
-\ arch/ppc/qemu/qemu.fs): "WIDTHxHEIGHT" decimal, empty = the ROM's own default
+\ Boot-console mode requested from an ATI Rage 128 or NVIDIA GeForce3 FCode
+\ display (see arch/ppc/qemu/qemu.fs): "WIDTHxHEIGHT" decimal, empty = the
+\ ROM's own default
 s" 800x600"  s" screen-mode"          str-config
 [THEN]
 
