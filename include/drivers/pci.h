@@ -202,6 +202,14 @@ extern const pci_arch_t *arch;
  */
 #define PCI_DEVICE_ID_ATI_RAGE128PRO     0x5245
 
+#define PCI_VENDOR_ID_NVIDIA             0x10de
+/*
+ * GeForce3 "Mac Edition" (NV20), the ID in the PCIR Data Structure of
+ * NVIDIA's Mac FCode ROM 1057.019 (nv_oem_3_1057019_agp_64k.rom), which
+ * its own FCode also tests for (device-id and h# fff0 = h# 200).
+ */
+#define PCI_DEVICE_ID_NVIDIA_GEFORCE3    0x0200
+
 #define PCI_VENDOR_ID_DEC                0x1011
 #define PCI_DEVICE_ID_DEC_21154          0x0026
 

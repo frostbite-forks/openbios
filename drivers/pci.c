@@ -447,9 +447,22 @@ ob_pci_bus_map_in(int *idx)
 	if (lo == 0 && mid == 0 && (hi & 0xff) != 0) {
 		/* relocatable, offset 0: use the BAR's assigned base */
 		pci_addr addr = PCI_ADDR(PCI_BUS(hi), PCI_DEV(hi), PCI_FN(hi));
-		uint32_t bar = pci_config_read32(addr, hi & 0xff);
+		int reg = hi & 0xff;
+		uint32_t bar = pci_config_read32(addr, reg);
+		int rom_reg = (pci_config_read8(addr, PCI_HEADER_TYPE) & 0x7f) ==
+			      PCI_HEADER_TYPE_BRIDGE ? PCI_ROM_ADDRESS1 : PCI_ROM_ADDRESS;
 
-		if (bar & 1) {
+		if (reg == rom_reg) {
+			/*
+			 * The expansion ROM BAR: bit 0 is its enable, not the
+			 * I/O-space flag of an ordinary BAR, and bits 10..1
+			 * are reserved. NVIDIA's GeForce3 ROM maps its own
+			 * ROM this way ("0 0 my-space h# 2000030 + h# 10000
+			 * map-in") to read the tables it carries.
+			 */
+			ba = bar & PCI_ROM_ADDRESS_MASK;
+			space = 2;
+		} else if (bar & 1) {
 			ba = bar & ~3u;
 			space = 1;
 		} else {
@@ -518,12 +531,17 @@ ob_pci_bus_map_out(int *idx)
 
 /*
  * config-b@/config-b! ( config-addr -- byte | byte config-addr -- )
+ * config-w@/config-w! ( config-addr -- word | word config-addr -- )
+ * config-l@/config-l! ( config-addr -- long | long config-addr -- )
  * A PCI card's own FCode calls these directly (via $call-parent) to
  * poke its own config space -- e.g. flipping command-register bits --
  * without going through a config_cb. config-addr packs bus/dev/fn in
  * the high bits and the config register offset in the low byte, the
  * same packed form pci_config_read8/write8 elsewhere in this file
- * already expect.
+ * already expect. ATI's Rage 128 ROM only uses the byte forms; NVIDIA's
+ * GeForce3 ROM enables its memory space with config-w@/config-w!
+ * ("my-space 4 + tuck config-w@ or swap config-w!") and defines the
+ * long forms too.
  */
 static void
 ob_pci_config_read8(int *idx)
@@ -541,6 +559,42 @@ ob_pci_config_write8(int *idx)
 	pci_addr addr = PCI_ADDR(PCI_BUS(hi), PCI_DEV(hi), PCI_FN(hi));
 	cell val = POP();
 	pci_config_write8(addr, hi & 0xff, val & 0xff);
+}
+
+static void
+ob_pci_config_read16(int *idx)
+{
+	cell hi = POP();
+	pci_addr addr = PCI_ADDR(PCI_BUS(hi), PCI_DEV(hi), PCI_FN(hi));
+	uint16_t val = pci_config_read16(addr, hi & 0xff);
+	PUSH(val);
+}
+
+static void
+ob_pci_config_write16(int *idx)
+{
+	cell hi = POP();
+	pci_addr addr = PCI_ADDR(PCI_BUS(hi), PCI_DEV(hi), PCI_FN(hi));
+	cell val = POP();
+	pci_config_write16(addr, hi & 0xff, val & 0xffff);
+}
+
+static void
+ob_pci_config_read32(int *idx)
+{
+	cell hi = POP();
+	pci_addr addr = PCI_ADDR(PCI_BUS(hi), PCI_DEV(hi), PCI_FN(hi));
+	uint32_t val = pci_config_read32(addr, hi & 0xff);
+	PUSH(val);
+}
+
+static void
+ob_pci_config_write32(int *idx)
+{
+	cell hi = POP();
+	pci_addr addr = PCI_ADDR(PCI_BUS(hi), PCI_DEV(hi), PCI_FN(hi));
+	cell val = POP();
+	pci_config_write32(addr, hi & 0xff, val & 0xffffffffu);
 }
 
 NODE_METHODS(ob_pci_bus_node) = {
@@ -562,6 +616,10 @@ NODE_METHODS(ob_pci_bus_node) = {
 	{ "map-out",		ob_pci_bus_map_out	},
 	{ "config-b@",		ob_pci_config_read8	},
 	{ "config-b!",		ob_pci_config_write8	},
+	{ "config-w@",		ob_pci_config_read16	},
+	{ "config-w!",		ob_pci_config_write16	},
+	{ "config-l@",		ob_pci_config_read32	},
+	{ "config-l!",		ob_pci_config_write32	},
 	{ "dma-alloc",		ob_pci_dma_alloc	},
 	{ "dma-free",		ob_pci_dma_free		},
 	{ "dma-map-in",		ob_pci_dma_map_in	},
