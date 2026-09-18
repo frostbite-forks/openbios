@@ -64,6 +64,44 @@ h# 18 constant cfg-bar2    \ QEMU MMIO ioport BAR
 -1 value mmio-addr
 
 \
+\ NVIDIA GeForce3 (NV20): unlike the generic Bochs-VBE card above,
+\ BAR0 is MMIO (registers) and BAR1 is VRAM (the framebuffer) -- the
+\ opposite arrangement, and real NV20 hardware's own layout (same as
+\ Linux's nouveau driver expects). Detected at runtime from this
+\ node's own vendor-id/device-id properties (already set generically
+\ by ob_pci_add_properties before this file's init word ever runs),
+\ so the one compiled "QEMU,VGA.bin" payload can drive either card.
+\
+
+h# 10de constant nv-vendor-id-geforce3
+h# 0200 constant nv-device-id-geforce3
+
+h# 10 constant nv-cfg-bar0    \ MMIO BAR
+h# 14 constant nv-cfg-bar1    \ VRAM BAR
+-1 value nv-mmio-addr
+-1 value nv-vram-addr
+
+\ get-my-property's own convention is inverted from the usual
+\ ?dup/if idiom: failure leaves just a lone "true" (name-str/name-len
+\ already consumed), success leaves "prop-addr prop-len false".
+: get-my-int-property ( name-str name-len -- n )
+  get-my-property if
+    0
+  else
+    \ decode-int leaves ( addr2 len2 n ), n on top
+    decode-int nip nip
+  then
+;
+
+: my-vendor-id ( -- n )  " vendor-id" get-my-int-property ;
+: my-device-id ( -- n )  " device-id" get-my-int-property ;
+
+: nv-geforce3? ( -- flag )
+  my-vendor-id nv-vendor-id-geforce3 =
+  my-device-id nv-device-id-geforce3 = and
+;
+
+\
 \ VGA registers
 \
 
@@ -158,6 +196,99 @@ defer vbe-iow!
   then
 ;
 
+: nv-map-mmio ( -- )
+  nv-cfg-bar0 pci-bar>pci-addr if
+    " map-in" $call-parent
+    to nv-mmio-addr
+  then
+;
+
+: nv-map-vram ( -- )
+  nv-cfg-bar1 pci-bar>pci-addr if
+    " map-in" $call-parent
+    to nv-vram-addr
+  then
+;
+
+\
+\ NV20 CRTC (extended VGA-style index/data ports, at fixed offsets
+\ within BAR0): index goes to 0x3d4, the value for that index to
+\ 0x3d5, exactly like real (and this emulation's) VGA-compatible CRTC
+\ access.
+\
+
+h# 6013d4 constant nv-crtc-index-addr
+h# 6013d5 constant nv-crtc-data-addr
+
+: nv-crtc! ( val index -- )
+  nv-mmio-addr nv-crtc-index-addr + c!
+  nv-mmio-addr nv-crtc-data-addr + c!
+;
+
+\
+\ Program a fixed 640x480, 8bpp-indexed mode at VRAM offset 0, the
+\ simplest mode this emulation's CRTC decode (nv_geforce3_get_mode())
+\ accepts -- register values are the same ones a stock 640x480
+\ standard-VGA mode already uses, since CRTC_MAX (0x18) and below is
+\ modelled identically to real VGA here:
+\   reg 1  (h# 4f) -- (width/8)-1        = 640/8-1  = 0x4f
+\   reg 7  (h#  2) -- bit 1 = height bit 8
+\   reg 18 (h# df) -- height low 8 bits  = 480-1 low8 = 0xdf
+\ and NV20-specific extensions above CRTC_MAX for pitch/bpp/offset:
+\   reg h# 13 -- pitch>>3    = 640>>3 = h# 50
+\   reg h# 0c/h# 0d -- start-address hi/lo, 0 for offset 0
+\   reg h# 19 -- pitch/offset extension bits, 0 (640/0 both fit below)
+\   reg h# 28 -- bpp code: 1 = 8bpp indexed (also the "mode enabled" flag)
+\   reg h# 25/h# 2d/h# 41/h# 42 -- overflow bits for >1024 sizes, 0 here
+\
+
+: nv20-init ( -- )
+  h# 4f 1 nv-crtc!
+  h#  2 7 nv-crtc!
+  h# df h# 12 nv-crtc!
+  h# 50 h# 13 nv-crtc!
+  0 h# 0c nv-crtc!
+  0 h# 0d nv-crtc!
+  0 h# 19 nv-crtc!
+  1 h# 28 nv-crtc!
+  0 h# 25 nv-crtc!
+  0 h# 2d nv-crtc!
+  0 h# 41 nv-crtc!
+  0 h# 42 nv-crtc!
+;
+
+\
+\ NV20 DAC (palette) access, at its own fixed offset within BAR0.
+\ Unlike vga-color!, this emulation's DAC stores full 8-bit
+\ components as written -- no >>2 scaling to 6-bit VGA precision,
+\ since nv_geforce3_draw_8bpp() reads them straight back out as
+\ 8-bit RGB.
+\
+
+h# 6813c8 constant nv-dac-write-addr
+h# 6813c9 constant nv-dac-data-addr
+
+: nv-dac-byte! ( byte -- )
+  nv-mmio-addr nv-dac-data-addr + c!
+;
+
+: nv-color! ( r g b index -- )
+  nv-mmio-addr nv-dac-write-addr + c!
+  >r >r
+  nv-dac-byte!
+  r> nv-dac-byte!
+  r> nv-dac-byte!
+;
+
+\ Console text draws with palette index 0 as background and index
+\ h# ff as foreground (see forth/device/display.fs); this emulation's
+\ palette otherwise defaults to all-black, which would make the
+\ console invisible (black on black) even with a correctly-set mode.
+: nv-init-colors ( -- )
+  0 0 0 0 nv-color!
+  h# ff h# ff h# ff h# ff nv-color!
+;
+
 \
 \ Legacy IO port or QEMU MMIO accesses
 \
@@ -191,7 +322,7 @@ defer mol-color!
 \ Perhaps for neatness this there should be a separate molvga.fs
 \ but let's leave it here for now.
 
-: color!  ( r g b index -- )
+: generic-color!  ( r g b index -- )
   mol-color!
 ;
 
@@ -199,11 +330,19 @@ defer mol-color!
 
 \ Standard VGA
 
-: color!  ( r g b index -- )
+: generic-color!  ( r g b index -- )
   vga-color!
 ;
 
 [THEN]
+
+: color!  ( r g b index -- )
+  nv-geforce3? if
+    nv-color!
+  else
+    generic-color!
+  then
+;
 
 : fill-rectangle  ( color_ind x y width height -- )
   fb8-fillrect
@@ -278,6 +417,46 @@ headerless
   ['] qemu-vga-driver-install is-install
 ;
 
-qemu-vga-driver-init
+\
+\ NV20 installation. Fixed at 640x480 8bpp-indexed -- the simplest
+\ mode nv20-init's fixed register set programs -- rather than reading
+\ openbios-video-width/-height, since those drive the *generic* Bochs
+\ card's arbitrary -g WxHxD resolution and nv20-init doesn't compute
+\ CRTC values generically. fb8-install still propagates 640/480 into
+\ them itself, so setup_video()'s C-side wiring ends up consistent
+\ either way.
+\
+
+: nv-geforce3-install ( -- )
+  nv-mmio-addr -1 = if
+    nv-map-mmio
+    nv20-init
+    nv-init-colors
+  then
+  nv-vram-addr -1 = if
+    nv-map-vram nv-vram-addr to frame-buffer-adr
+    default-font set-font
+
+    frame-buffer-adr encode-int " address" property
+
+    640 480 over char-width / over char-height /
+    fb8-install
+  then
+;
+
+: nv-geforce3-driver-init ( -- )
+  640 encode-int " width" property
+  480 encode-int " height" property
+  8 encode-int " depth" property
+  640 encode-int " linebytes" property
+
+  ['] nv-geforce3-install is-install
+;
+
+nv-geforce3? if
+  nv-geforce3-driver-init
+else
+  qemu-vga-driver-init
+then
 
 end0
