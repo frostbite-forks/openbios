@@ -1647,6 +1647,23 @@ static void ob_pci_add_properties(phandle_t phandle,
 		if (pci_dev->type) {
 			push_str(pci_dev->type);
 			fword("device-type");
+		} else if ((class_code >> 8) == PCI_BASE_CLASS_DISPLAY) {
+			/*
+			 * Neither vga_devices[] entry sets ->type, so a card whose
+			 * own FCode driver defers setting device-type until its
+			 * "open" method actually runs (the NVIDIA GeForce3 Mac
+			 * Edition ROM does this; the ATI Rage 128 ROM sets it
+			 * immediately at top level instead) is invisible to
+			 * install-console's "screen" alias auto-detection
+			 * (iterate-device-type " display"), since that runs
+			 * before anything has ever opened the card -- open is
+			 * only reachable *through* that same alias. Fall back to
+			 * what the PCI class code already tells us, from the
+			 * platform side, independently of the ROM's own choice of
+			 * when to set it.
+			 */
+			push_str("display");
+			fword("device-type");
 		}
 		if (pci_dev->model) {
 			push_str(pci_dev->model);
