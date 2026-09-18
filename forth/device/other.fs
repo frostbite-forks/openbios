@@ -158,7 +158,21 @@ variable obp-ticks
   begin dup get-msecs < until
   drop
   ;
-  
+
+\ IEEE 1275 5.3.7.3 also allows a platform to provide "us" (microsecond
+\ delay) as a plain dictionary word -- it is not a numbered FCode token,
+\ which is why a card's own FCode probes for it with $find instead of
+\ calling it directly, and falls back to its own software delay when
+\ the search comes back empty. Providing it for real, at get-msecs'
+\ own (dummy, count-based on this arch) granularity, is still more
+\ correct than leaving it undefined -- and it means that search finds
+\ a working word instead of running to the end of the dictionary.
+: us    ( n -- )
+  get-msecs +
+  begin dup get-msecs < until
+  drop
+  ;
+
 : alarm    ( xt n -- )
   2drop
   ;
